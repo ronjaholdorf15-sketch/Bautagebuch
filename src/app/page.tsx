@@ -4,17 +4,23 @@ import { useState } from "react";
 import LoginForm from "../components/LoginForm";
 import BautagebuchApp from "../components/BautagebuchApp";
 
+type Credentials = {
+  username: string;
+  password: string;
+};
+
 export default function HomePage() {
-  const [userData, setUserData] = useState<{ username: string; password: string } | null>(null);
+  const [userData, setUserData] = useState<Credentials | null>(null);
+
+  // ✅ Typisierte Funktion
+  const handleLogin = (creds: Credentials) => {
+    setUserData(creds);
+  };
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
       {!userData ? (
-        <LoginForm
-          onLogin={(creds: { username: string; password: string }) =>
-            setUserData(creds)
-          }
-        />
+        <LoginForm onLogin={handleLogin} />
       ) : (
         <BautagebuchApp
           username={userData.username}
