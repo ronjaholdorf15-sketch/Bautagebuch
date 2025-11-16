@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function BautagebuchApp({ username, userId }) {
+export default function BautagebuchApp({ username, storedCreds }) {
   const [date, setDate] = useState("");
   const [doneTasks, setDoneTasks] = useState("");
   const [missingTasks, setMissingTasks] = useState("");
@@ -16,15 +16,20 @@ export default function BautagebuchApp({ username, userId }) {
   const loadFolders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/Route?user=${encodeURIComponent(userId)}`);
+      const res = await fetch("/api/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "folders",
+          username: storedCreds.username,
+          password: storedCreds.password,
+        }),
+      });
       const data = await res.json();
-      if (res.ok) {
-        setFolders(data.folders || []);
-      } else {
-        alert("Fehler: " + (data.error || "Unbekannter Fehler"));
-      }
+      if (!res.ok) throw new Error(data.error || "Ordner laden fehlgeschlagen");
+      setFolders(data.folders || []);
     } catch (err) {
-      alert("Fehler beim Laden: " + err.message);
+      alert("Fehler beim Laden: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -32,15 +37,14 @@ export default function BautagebuchApp({ username, userId }) {
 
   const handleSave = async () => {
     if (!ncFolder) {
-      alert("Bitte einen Ordner auswählen!");
+      alert("Bitte Zielordner wählen.");
       return;
     }
-
     setLoading(true);
     try {
       const textContent = `
-Datum: ${date}
-Adresse der Baustelle: ${address}
+Datum: ${date || new Date().toISOString().slice(0, 10)}
+Adresse: ${address}
 
 Was wurde erledigt:
 ${doneTasks}
@@ -52,33 +56,31 @@ Materialliste:
 ${materialList}
       `;
 
-      const textFile = new Blob([textContent], { type: "text/plain" });
-      const formData = new FormData();
-      formData.append("folder", ncFolder);
-      formData.append("textFile", textFile);
-      images.forEach((img) => formData.append("images", img));
+      const form = new FormData();
+      form.append("action", "upload");
+      form.append("username", storedCreds.username);
+      form.append("password", storedCreds.password);
+      form.append("folder", ncFolder);
+      form.append("textFile", new Blob([textContent], { type: "text/plain" }), `bautagebuch_${Date.now()}.txt`);
 
-      const res = await fetch("/api/Route", {
-        method: "POST",
-        body: formData,
-      });
+      images.forEach((f) => form.append("images", f));
 
+      const res = await fetch("/api/route", { method: "POST", body: form });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg);
+        const txt = await res.text();
+        throw new Error(txt || "Upload fehlgeschlagen");
       }
 
-      alert("✅ Alles erfolgreich in Nextcloud gespeichert!");
-
+      alert("Erfolgreich hochgeladen!");
+      // reset
       setDate("");
+      setAddress("");
       setDoneTasks("");
       setMissingTasks("");
-      setAddress("");
       setMaterialList("");
       setImages([]);
     } catch (err) {
-      console.error(err);
-      alert(err.message);
+      alert("Upload Fehler: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ ${materialList}
 
   return (
     <div className="max-w-2xl mx-auto bg-white shadow-lg p-6 rounded-2xl mt-8">
-      <h1 className="text-2xl font-bold mb-4 text-center">📘 Bautagebuch</h1>
+      <h1 className="text-2xl font-bold mb-4 text-center">📘 Bautagebuch — {username}</h1>
 
       <div className="grid gap-3 mb-4">
         <input type="date" className="border rounded p-2" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -97,7 +99,7 @@ ${materialList}
 
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => document.getElementById("imageInput").click()} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">📷 Bilder auswählen</button>
-          <input id="imageInput" type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => setImages(Array.from(e.target.files))} />
+          <input id="imageInput" type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => setImages(Array.from(e.target.files || []))} />
           {images.length > 0 && <p className="text-sm">{images.length} Bild(er) ausgewählt</p>}
         </div>
       </div>
@@ -105,17 +107,18 @@ ${materialList}
       <div className="border-t pt-4 mt-4">
         <h2 className="font-semibold mb-2">Nextcloud-Ordner</h2>
         <div className="flex gap-2 items-center mb-2">
-          <button type="button" onClick={loadFolders} disabled={loading} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded">📂 Ordner laden</button>
+          <button onClick={loadFolders} disabled={loading} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded">📂 Ordner laden</button>
+
           {folders.length > 0 && (
             <select className="border rounded p-2" value={ncFolder} onChange={(e) => setNcFolder(e.target.value)}>
               <option value="">– Ordner wählen –</option>
-              {folders.map((f, idx) => (<option key={idx} value={f}>{f}</option>))}
+              {folders.map((f, i) => (<option key={i} value={f}>{f}</option>))}
             </select>
           )}
         </div>
       </div>
 
-      <button type="button" onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded mt-4">{loading ? "Speichern..." : "💾 Speichern & Hochladen"}</button>
+      <button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded mt-4">{loading ? "Arbeite..." : "💾 Speichern & Hochladen"}</button>
     </div>
   );
 }
