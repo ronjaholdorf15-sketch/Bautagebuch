@@ -18,11 +18,7 @@ export default function HomePage() {
       ) : (
         <BautagebuchApp
           username={userData.username}
-          ncUser={userData.username}
-          ncPassword={userData.password}
-          ncUrl={`https://nc-1378779500208301258.nextcloud-ionos.com/remote.php/dav/files/${encodeURIComponent(
-            userData.username
-          )}/`}
+          userId={userData.username}
         />
       )}
     </main>
