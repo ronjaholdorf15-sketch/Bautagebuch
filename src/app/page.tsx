@@ -4,16 +4,10 @@ import { useState } from "react";
 import LoginForm from "../components/LoginForm";
 import BautagebuchApp from "../components/BautagebuchApp";
 
-type Credentials = {
-  username: string;
-  password: string;
-};
-
 export default function HomePage() {
-  const [userData, setUserData] = useState<Credentials | null>(null);
+  const [userData, setUserData] = useState(null);
 
-  // ✅ Typisierte Funktion
-  const handleLogin = (creds: Credentials) => {
+  const handleLogin = (creds) => {
     setUserData(creds);
   };
 
@@ -26,7 +20,9 @@ export default function HomePage() {
           username={userData.username}
           ncUser={userData.username}
           ncPassword={userData.password}
-          ncUrl="https://nc-1378779500208301258.nextcloud-ionos.com/remote.php/dav/files/deinBenutzername/"
+          ncUrl={`https://nc-1378779500208301258.nextcloud-ionos.com/remote.php/dav/files/${encodeURIComponent(
+            userData.username
+          )}/`}
         />
       )}
     </main>

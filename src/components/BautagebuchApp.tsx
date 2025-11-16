@@ -2,21 +2,14 @@
 
 import { useState } from "react";
 
-interface BautagebuchAppProps {
-  username: string;
-  ncUrl: string;
-  ncUser: string;
-  ncPassword: string;
-}
-
-export default function BautagebuchApp({ username, ncUrl, ncUser, ncPassword }: BautagebuchAppProps) {
+export default function BautagebuchApp({ username, ncUrl, ncUser, ncPassword }) {
   const [date, setDate] = useState("");
   const [doneTasks, setDoneTasks] = useState("");
   const [missingTasks, setMissingTasks] = useState("");
   const [address, setAddress] = useState("");
   const [materialList, setMaterialList] = useState("");
-  const [images, setImages] = useState<File[]>([]);
-  const [folders, setFolders] = useState<string[]>([]);
+  const [images, setImages] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [ncFolder, setNcFolder] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,33 +22,40 @@ export default function BautagebuchApp({ username, ncUrl, ncUser, ncPassword }: 
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/nextcloud?url=${ncUrl}&username=${encodeURIComponent(
+        `/api/Route?url=${encodeURIComponent(ncUrl)}&username=${encodeURIComponent(
           ncUser
         )}&password=${encodeURIComponent(ncPassword)}`
       );
       const data = await res.json();
       if (res.ok) {
-        setFolders(data.folders);
+        setFolders(data.folders || []);
       } else {
         alert("Fehler: " + (data.error || "Unbekannter Fehler"));
       }
-    } catch (err: any) {
+    } catch (err) {
       alert("Fehler beim Laden: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const uploadToNextcloud = async (file: File | Blob) => {
-    const filename = file instanceof File ? file.name : `bautagebuch_${Date.now()}.txt`;
+  const uploadToNextcloud = async (file) => {
+    if (!ncFolder) {
+      alert("Bitte zuerst einen Ordner auswählen!");
+      return;
+    }
+
+    const filename = file.name || `bautagebuch_${Date.now()}.txt`;
+
     const res = await fetch(
-      `/api/nextcloud?url=${ncUrl}&username=${encodeURIComponent(
+      `/api/Route?url=${encodeURIComponent(ncUrl)}&username=${encodeURIComponent(
         ncUser
       )}&password=${encodeURIComponent(ncPassword)}&folder=${encodeURIComponent(
         ncFolder
       )}&filename=${encodeURIComponent(filename)}`,
       { method: "PUT", body: file }
     );
+
     if (!res.ok) {
       const msg = await res.text();
       throw new Error("Upload fehlgeschlagen: " + msg);
@@ -64,7 +64,7 @@ export default function BautagebuchApp({ username, ncUrl, ncUser, ncPassword }: 
 
   const handleSave = async () => {
     if (!ncFolder) {
-      alert("Bitte einen Zielordner auswählen!");
+      alert("Bitte einen Ordner auswählen!");
       return;
     }
 
@@ -98,7 +98,7 @@ ${materialList}
       setAddress("");
       setMaterialList("");
       setImages([]);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       alert(err.message);
     } finally {
@@ -111,17 +111,57 @@ ${materialList}
       <h1 className="text-2xl font-bold mb-4 text-center">📘 Bautagebuch</h1>
 
       <div className="grid gap-3 mb-4">
-        <input type="date" className="border rounded p-2" value={date} onChange={(e) => setDate(e.target.value)} />
-        <input type="text" className="border rounded p-2" placeholder="Adresse der Baustelle" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <textarea className="border rounded p-2" rows={3} placeholder="Was wurde erledigt" value={doneTasks} onChange={(e) => setDoneTasks(e.target.value)} />
-        <textarea className="border rounded p-2" rows={3} placeholder="Was fehlt noch" value={missingTasks} onChange={(e) => setMissingTasks(e.target.value)} />
-        <textarea className="border rounded p-2" rows={3} placeholder="Materialliste" value={materialList} onChange={(e) => setMaterialList(e.target.value)} />
+        <input
+          type="date"
+          className="border rounded p-2"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+        <input
+          type="text"
+          className="border rounded p-2"
+          placeholder="Adresse der Baustelle"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+        <textarea
+          className="border rounded p-2"
+          rows={3}
+          placeholder="Was wurde erledigt"
+          value={doneTasks}
+          onChange={(e) => setDoneTasks(e.target.value)}
+        />
+        <textarea
+          className="border rounded p-2"
+          rows={3}
+          placeholder="Was fehlt noch"
+          value={missingTasks}
+          onChange={(e) => setMissingTasks(e.target.value)}
+        />
+        <textarea
+          className="border rounded p-2"
+          rows={3}
+          placeholder="Materialliste"
+          value={materialList}
+          onChange={(e) => setMaterialList(e.target.value)}
+        />
 
         <div className="flex flex-col gap-2">
-          <button type="button" onClick={() => document.getElementById("imageInput")?.click()} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+          <button
+            type="button"
+            onClick={() => document.getElementById("imageInput").click()}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+          >
             📷 Bilder auswählen
           </button>
-          <input id="imageInput" type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => setImages(Array.from(e.target.files || []))} />
+          <input
+            id="imageInput"
+            type="file"
+            multiple
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => setImages(Array.from(e.target.files))}
+          />
           {images.length > 0 && <p className="text-sm">{images.length} Bild(er) ausgewählt</p>}
         </div>
       </div>
@@ -129,21 +169,38 @@ ${materialList}
       <div className="border-t pt-4 mt-4">
         <h2 className="font-semibold mb-2">Nextcloud-Ordner</h2>
         <div className="flex gap-2 items-center mb-2">
-          <button type="button" onClick={loadFolders} disabled={loading} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded">
+          <button
+            type="button"
+            onClick={loadFolders}
+            disabled={loading}
+            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded"
+          >
             📂 Ordner laden
           </button>
+
           {folders.length > 0 && (
-            <select className="border rounded p-2" value={ncFolder} onChange={(e) => setNcFolder(e.target.value)}>
+            <select
+              className="border rounded p-2"
+              value={ncFolder}
+              onChange={(e) => setNcFolder(e.target.value)}
+            >
               <option value="">– Ordner wählen –</option>
               {folders.map((folder, idx) => (
-                <option key={idx} value={folder}>{folder}</option>
+                <option key={idx} value={folder}>
+                  {folder}
+                </option>
               ))}
             </select>
           )}
         </div>
       </div>
 
-      <button type="button" onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded mt-4">
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={loading}
+        className="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded mt-4"
+      >
         {loading ? "Speichern..." : "💾 Speichern & Hochladen"}
       </button>
     </div>

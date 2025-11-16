@@ -2,15 +2,11 @@
 
 import { useState } from "react";
 
-interface LoginFormProps {
-  onLogin: (creds: { username: string; password: string }) => void;
-}
-
-export default function LoginForm({ onLogin }: LoginFormProps) {
+export default function LoginForm({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     onLogin({ username, password });
   };
